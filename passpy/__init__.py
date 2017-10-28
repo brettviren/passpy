@@ -20,6 +20,7 @@ from .exceptions import (
 )
 from .store import Store
 from .util import gen_password
+from .data import parse
 
 
 __title__ = 'passpy'
