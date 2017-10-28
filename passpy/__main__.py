@@ -587,3 +587,55 @@ def git(ctx, git_args):
     except GitCommandError as e:
         click.echo(e)
         return 1
+
+
+@cli.command(options_metavar='[ --command,-c | --execute,-e ] [ --variable,-V ]')
+@click.option('-d', '--dump', is_flag=True,
+              help='Dump password data structure.')
+@click.option('-c', '--command', type=str, default="command",
+              help='Command to run as defined in data.')
+@click.option('-e', '--execute', type=str, default="",
+              help='Execute command string after interpolation.')
+@click.option('-V', '--variable', type=str, multiple=True,
+              help='Execute command string after interpolation.')
+@click.argument('pass_name', type=str, metavar='pass-name', default='.')
+@click.pass_context
+def run(ctx, pass_name, dump, command, execute, variable):
+    """Decrypt password named `pass-name` and run a command.  If
+    `--command` or `-c` is specified, the command string is taken as
+    the entry with the given option argument.  If `--execute` or `-e`
+    is specified, use the option argument is used as the command
+    string.  String formatting is performed on command strings using
+    all data associated with the password entry and with any
+    additional parameters given by `--variable` or `-V` options as
+    "key=val".  The password itself is available using the variable
+    `{password}`.
+
+    """
+    import passpy.data
+    import subprocess as proc
+
+    try:
+        data = ctx.obj.get_key(pass_name)
+    except FileNotFoundError:
+        click.echo(MSG_FILE_NOT_FOUND.format(pass_name))
+        return 1
+    data = passpy.data.parse(data)
+
+    for kv in variable:
+        k,v = vk.split("=")
+        data[k] = v
+
+    if dump:
+        click.echo(repr(data))
+
+    if execute:
+        cmd = execute
+    elif command:
+        cmd = data.get(command,"")
+    if not cmd:
+        click.echo("No command")
+        return 1
+    cmd = cmd.format(**data)
+    p = proc.run(cmd, shell=True)
+    return p.returncode
